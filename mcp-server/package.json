@@ -1,0 +1,13 @@
+{
+  "name": "ziwei-mcp-server",
+  "version": "1.0.0",
+  "description": "Claude MCP Server for Ziwei Doushu",
+  "main": "ziwei-server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node ziwei-server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.15.1"
+  }
+}
