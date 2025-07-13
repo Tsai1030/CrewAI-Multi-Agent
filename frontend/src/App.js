@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { Box, Button } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
 
 // 組件導入
 import ZiweiForm from './components/ZiweiForm';
-import ResultDisplay from './components/ResultDisplaySimple';
+import ResultDisplay from './components/ResultDisplay';
 import LoadingAnimation from './components/LoadingAnimation';
 import WizardDivination from './components/WizardDivination';
 import Header from './components/Header';
 import SimpleBackground from './components/SimpleBackground';
+// import SimpleMarkdownTest from './components/SimpleMarkdownTest';
 
 // 樣式導入
 import './App.css';
@@ -75,7 +77,7 @@ const theme = createTheme({
 });
 
 function App() {
-  const [currentStep, setCurrentStep] = useState('form'); // 'form', 'loading', 'result'
+  const [currentStep, setCurrentStep] = useState('form'); // 'form', 'loading', 'result', 'markdown-test'
   const [analysisResult, setAnalysisResult] = useState(null);
 
   const [selectedDomain, setSelectedDomain] = useState(null);
@@ -154,6 +156,8 @@ function App() {
               onRestart={handleRestart}
             />
           )}
+
+
         </main>
       </div>
     </ThemeProvider>

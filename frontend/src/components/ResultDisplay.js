@@ -172,6 +172,58 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
     return String(result.result);
   };
 
+  // 簡單的 Markdown 處理函數
+  const processMarkdown = (text) => {
+    if (!text || typeof text !== 'string') return '';
+
+    // 先轉義 HTML 特殊字符（除了我們要處理的 Markdown）
+    let processedText = text;
+
+    // 將 ## 轉換為 h2 標題
+    processedText = processedText.replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>');
+
+    // 將 ### 轉換為 h3 標題
+    processedText = processedText.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>');
+
+    // 將 #### 轉換為 h4 標題
+    processedText = processedText.replace(/^#### (.+)$/gm, '<h4 class="md-h4">$1</h4>');
+
+    // 將 **text** 轉換為粗體
+    processedText = processedText.replace(/\*\*(.+?)\*\*/g, '<strong class="md-strong">$1</strong>');
+
+    // 將 *text* 轉換為斜體
+    processedText = processedText.replace(/\*([^*]+?)\*/g, '<em class="md-em">$1</em>');
+
+    // 處理有序列表
+    processedText = processedText.replace(/^(\d+)\. (.+)$/gm, '<li class="md-li">$2</li>');
+
+    // 處理無序列表
+    processedText = processedText.replace(/^- (.+)$/gm, '<li class="md-li">$1</li>');
+
+    // 將連續的 li 包裝在 ol 或 ul 中
+    processedText = processedText.replace(/(<li class="md-li">.*?<\/li>)/gs, (match) => {
+      // 檢查是否是有序列表（包含數字）
+      if (text.match(/^\d+\./m)) {
+        return `<ol class="md-ol">${match}</ol>`;
+      } else {
+        return `<ul class="md-ul">${match}</ul>`;
+      }
+    });
+
+    // 將雙換行轉換為段落分隔
+    processedText = processedText.replace(/\n\n/g, '</p><p class="md-p">');
+
+    // 將單換行轉換為 br
+    processedText = processedText.replace(/\n/g, '<br>');
+
+    // 包裝在段落中
+    if (!processedText.includes('<h2') && !processedText.includes('<h3') && !processedText.includes('<ol') && !processedText.includes('<ul')) {
+      processedText = '<p class="md-p">' + processedText + '</p>';
+    }
+
+    return processedText;
+  };
+
   const handleExpandClick = () => {
     setExpanded(!expanded);
   };
@@ -310,19 +362,63 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
               background: 'rgba(255, 255, 255, 0.05)',
               borderRadius: '15px',
               padding: 3,
-              border: '1px solid rgba(255, 255, 255, 0.1)'
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              '& .md-h2': {
+                fontSize: '1.5rem',
+                fontWeight: 600,
+                color: '#ffffff',
+                marginBottom: '12px',
+                marginTop: '20px',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+                paddingBottom: '4px',
+                display: 'block',
+              },
+              '& .md-h3': {
+                fontSize: '1.25rem',
+                fontWeight: 600,
+                color: '#ffffff',
+                marginBottom: '8px',
+                marginTop: '16px',
+                display: 'block',
+              },
+              '& .md-h4': {
+                fontSize: '1.1rem',
+                fontWeight: 600,
+                color: '#ffffff',
+                marginBottom: '6px',
+                marginTop: '12px',
+                display: 'block',
+              },
+              '& .md-p': {
+                fontSize: '1.1rem',
+                lineHeight: 1.8,
+                color: 'rgba(255, 255, 255, 0.9)',
+                marginBottom: '12px',
+                display: 'block',
+              },
+              '& .md-strong': {
+                fontWeight: 700,
+                color: '#ffffff',
+              },
+              '& .md-em': {
+                fontStyle: 'italic',
+                color: 'rgba(255, 255, 255, 0.95)',
+              },
+              '& .md-ol, & .md-ul': {
+                paddingLeft: '24px',
+                marginBottom: '12px',
+                color: 'rgba(255, 255, 255, 0.9)',
+              },
+              '& .md-li': {
+                fontSize: '1.1rem',
+                lineHeight: 1.7,
+                marginBottom: '4px',
+                color: 'rgba(255, 255, 255, 0.9)',
+              },
             }}>
-              <Typography
-                variant="body1"
-                sx={{
-                  lineHeight: 1.8,
-                  fontSize: '1.1rem',
-                  whiteSpace: 'pre-wrap',
-                  color: 'rgba(255, 255, 255, 0.9)'
-                }}
-              >
-                {getResultContent() || '暫無分析結果'}
-              </Typography>
+              <div dangerouslySetInnerHTML={{
+                __html: processMarkdown(getResultContent()) || '暫無分析結果'
+              }} />
             </MarkdownContainer>
           </StyledPaper>
         </motion.div>
