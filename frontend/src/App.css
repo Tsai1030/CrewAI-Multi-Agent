@@ -13,6 +13,7 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
+  padding-top: 84px; /* Header 高度 64px + 額外間距 20px */
 }
 
 /* 動畫效果 */
@@ -142,12 +143,14 @@
 @media (max-width: 768px) {
   .main-content {
     padding: 10px;
+    padding-top: 74px; /* Header 高度 64px + 額外間距 10px */
   }
 }
 
 @media (max-width: 480px) {
   .main-content {
     padding: 5px;
+    padding-top: 66px; /* Header 高度 56px (手機) + 額外間距 10px */
   }
 }
 

@@ -61,7 +61,7 @@ class ZiweiRAGSystem:
             "generator": {
                 "api_key": os.getenv("OPENAI_API_KEY"),
                 "base_url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-                "model": os.getenv("OPENAI_MODEL_GPT4O", "gpt-4o"),
+                "model": os.getenv("OPENAI_MODEL_GPT4O", "gpt-4o-mini"),
                 "temperature": float(os.getenv("GPT4O_TEMPERATURE", "0.7")),
                 "max_tokens": int(os.getenv("GPT4O_MAX_TOKENS", "2000"))
             },

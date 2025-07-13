@@ -17,7 +17,7 @@ class GPT4oGenerator:
     def __init__(self, 
                  api_key: str = None,
                  base_url: str = "https://api.openai.com/v1",
-                 model: str = "gpt-4o",
+                 model: str = "gpt-4o-mini",
                  temperature: float = 0.7,
                  max_tokens: int = 2000,
                  logger=None):

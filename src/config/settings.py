@@ -15,7 +15,7 @@ class OpenAISettings(BaseSettings):
     """OpenAI API 設定"""
     api_key: Optional[str] = Field(None, env="OPENAI_API_KEY")
     base_url: str = Field("https://api.openai.com/v1", env="OPENAI_BASE_URL")
-    model_gpt4o: str = Field("gpt-4o", env="OPENAI_MODEL_GPT4O")
+    model_gpt4o: str = Field("gpt-4o-mini", env="OPENAI_MODEL_GPT4O")
     model_gpt4: str = Field("gpt-4-turbo", env="OPENAI_MODEL_GPT4")
     timeout: int = Field(60, env="OPENAI_TIMEOUT")
     max_retries: int = Field(3, env="OPENAI_MAX_RETRIES")

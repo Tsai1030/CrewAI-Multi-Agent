@@ -40,7 +40,7 @@ pip install transformers torch tokenizers chromadb openai langchain
 ```env
 # OpenAI API 設定
 OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL_GPT4O=gpt-4o
+OPENAI_MODEL_GPT4O=gpt-4o-mini
 
 # BGE-M3 嵌入模型設定
 EMBEDDING_MODEL=BAAI/bge-m3

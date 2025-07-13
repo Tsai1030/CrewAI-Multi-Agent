@@ -19,6 +19,8 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import ShareIcon from '@mui/icons-material/Share';
 import DownloadIcon from '@mui/icons-material/Download';
+// import ReactMarkdown from 'react-markdown';
+// import remarkGfm from 'remark-gfm';
 
 const StyledPaper = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(4),
@@ -49,8 +51,126 @@ const ExpandMore = styled((props) => {
   }),
 }));
 
+// Markdown 容器樣式
+const MarkdownContainer = styled(Box)(({ theme }) => ({
+  '& h1': {
+    fontSize: '2rem',
+    fontWeight: 700,
+    color: '#ffffff',
+    marginBottom: theme.spacing(2),
+    marginTop: theme.spacing(3),
+    borderBottom: '2px solid rgba(255, 255, 255, 0.3)',
+    paddingBottom: theme.spacing(1),
+  },
+  '& h2': {
+    fontSize: '1.5rem',
+    fontWeight: 600,
+    color: '#ffffff',
+    marginBottom: theme.spacing(1.5),
+    marginTop: theme.spacing(2.5),
+    borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
+    paddingBottom: theme.spacing(0.5),
+  },
+  '& h3': {
+    fontSize: '1.25rem',
+    fontWeight: 600,
+    color: '#ffffff',
+    marginBottom: theme.spacing(1),
+    marginTop: theme.spacing(2),
+  },
+  '& h4, & h5, & h6': {
+    fontSize: '1.1rem',
+    fontWeight: 500,
+    color: '#ffffff',
+    marginBottom: theme.spacing(0.5),
+    marginTop: theme.spacing(1.5),
+  },
+  '& p': {
+    fontSize: '1.1rem',
+    lineHeight: 1.8,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: theme.spacing(1.5),
+  },
+  '& strong': {
+    fontWeight: 700,
+    color: '#ffffff',
+  },
+  '& em': {
+    fontStyle: 'italic',
+    color: 'rgba(255, 255, 255, 0.95)',
+  },
+  '& ul, & ol': {
+    paddingLeft: theme.spacing(3),
+    marginBottom: theme.spacing(1.5),
+  },
+  '& li': {
+    fontSize: '1.1rem',
+    lineHeight: 1.7,
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: theme.spacing(0.5),
+  },
+  '& blockquote': {
+    borderLeft: '4px solid rgba(102, 126, 234, 0.6)',
+    paddingLeft: theme.spacing(2),
+    margin: theme.spacing(2, 0),
+    fontStyle: 'italic',
+    color: 'rgba(255, 255, 255, 0.8)',
+    background: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: '0 8px 8px 0',
+    padding: theme.spacing(1.5, 2),
+  },
+  '& code': {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    fontSize: '0.9em',
+    color: '#ffffff',
+  },
+  '& pre': {
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    padding: theme.spacing(2),
+    borderRadius: '8px',
+    overflow: 'auto',
+    marginBottom: theme.spacing(2),
+  },
+  '& pre code': {
+    backgroundColor: 'transparent',
+    padding: 0,
+  },
+}));
+
 const ResultDisplay = ({ result, domain, onRestart }) => {
   const [expanded, setExpanded] = useState(false);
+
+  // 調試：檢查 result 的結構
+  console.log('ResultDisplay result:', result);
+  console.log('ResultDisplay result.result:', result?.result);
+  console.log('ResultDisplay result.result type:', typeof result?.result);
+
+  // 安全地獲取結果內容
+  const getResultContent = () => {
+    if (!result || !result.result) {
+      return '';
+    }
+
+    // 如果是字符串，直接返回
+    if (typeof result.result === 'string') {
+      return result.result;
+    }
+
+    // 如果是對象，嘗試序列化
+    if (typeof result.result === 'object') {
+      try {
+        return JSON.stringify(result.result, null, 2);
+      } catch (e) {
+        console.error('無法序列化結果對象:', e);
+        return '結果格式錯誤';
+      }
+    }
+
+    // 其他類型，轉換為字符串
+    return String(result.result);
+  };
 
   const handleExpandClick = () => {
     setExpanded(!expanded);
@@ -69,10 +189,16 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
 
   const handleDownload = () => {
     // 實現下載功能
+    const content = getResultContent();
+    if (!content) {
+      console.warn('沒有可下載的內容');
+      return;
+    }
+
     const element = document.createElement('a');
-    const file = new Blob([result.result], { type: 'text/plain' });
+    const file = new Blob([content], { type: 'text/plain' });
     element.href = URL.createObjectURL(file);
-    element.download = `紫微斗數分析_${domain.name}_${new Date().toLocaleDateString()}.txt`;
+    element.download = `紫微斗數分析_${domain?.name || '命理'}_${new Date().toLocaleDateString()}.txt`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -94,7 +220,7 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
               transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
             >
               <Typography variant="h1" sx={{ mb: 2 }}>
-                {domain.icon}
+                {domain?.icon || '🔮'}
               </Typography>
             </motion.div>
 
@@ -114,7 +240,7 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
                   mb: 1
                 }}
               >
-                您的{domain.name}分析結果
+                您的{domain?.name || '命理'}分析結果
               </Typography>
             </motion.div>
 
@@ -123,8 +249,8 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
             >
-              <Chip 
-                label={`分析完成 • 處理時間: ${result.metadata?.processing_time?.toFixed(2)}秒`}
+              <Chip
+                label={`分析完成 • 處理時間: ${result.metadata?.processing_time?.toFixed(2) || '0.00'}秒`}
                 color="primary"
                 sx={{ mb: 2 }}
               />
@@ -180,24 +306,24 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
               📖 詳細分析報告
             </Typography>
 
-            <Box sx={{ 
+            <MarkdownContainer sx={{
               background: 'rgba(255, 255, 255, 0.05)',
               borderRadius: '15px',
               padding: 3,
               border: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
-              <Typography 
-                variant="body1" 
-                sx={{ 
+              <Typography
+                variant="body1"
+                sx={{
                   lineHeight: 1.8,
                   fontSize: '1.1rem',
                   whiteSpace: 'pre-wrap',
-                  color: 'text.primary'
+                  color: 'rgba(255, 255, 255, 0.9)'
                 }}
               >
-                {result.result}
+                {getResultContent() || '暫無分析結果'}
               </Typography>
-            </Box>
+            </MarkdownContainer>
           </StyledPaper>
         </motion.div>
 
@@ -239,7 +365,7 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
                       處理時間
                     </Typography>
                     <Typography variant="body1">
-                      {result.metadata?.processing_time?.toFixed(2)} 秒
+                      {result.metadata?.processing_time?.toFixed(2) || '0.00'} 秒
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>
@@ -247,7 +373,7 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
                       分析領域
                     </Typography>
                     <Typography variant="body1">
-                      {domain.name}
+                      {domain?.name || '未知領域'}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} sm={6}>

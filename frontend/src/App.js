@@ -4,8 +4,9 @@ import CssBaseline from '@mui/material/CssBaseline';
 
 // 組件導入
 import ZiweiForm from './components/ZiweiForm';
-import ResultDisplay from './components/ResultDisplay';
+import ResultDisplay from './components/ResultDisplaySimple';
 import LoadingAnimation from './components/LoadingAnimation';
+import WizardDivination from './components/WizardDivination';
 import Header from './components/Header';
 import SimpleBackground from './components/SimpleBackground';
 
@@ -78,6 +79,7 @@ function App() {
   const [analysisResult, setAnalysisResult] = useState(null);
 
   const [selectedDomain, setSelectedDomain] = useState(null);
+  const [useWizardAnimation, setUseWizardAnimation] = useState(true); // 控制使用哪種載入動畫
 
   // 處理表單提交
   const handleFormSubmit = async (formData, domain) => {
@@ -130,11 +132,19 @@ function App() {
 
         <main className="main-content">
           {currentStep === 'form' && (
-            <ZiweiForm onSubmit={handleFormSubmit} />
+            <ZiweiForm
+              onSubmit={handleFormSubmit}
+              useWizardAnimation={useWizardAnimation}
+              setUseWizardAnimation={setUseWizardAnimation}
+            />
           )}
 
           {currentStep === 'loading' && (
-            <LoadingAnimation domain={selectedDomain} />
+            useWizardAnimation ? (
+              <WizardDivination domain={selectedDomain} />
+            ) : (
+              <LoadingAnimation domain={selectedDomain} />
+            )
           )}
 
           {currentStep === 'result' && (

@@ -15,6 +15,8 @@ import {
   CardContent,
   CardActionArea,
   Chip,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { motion } from 'framer-motion';
 import { styled } from '@mui/material/styles';
@@ -63,7 +65,7 @@ const SubmitButton = styled(Button)(({ theme }) => ({
   },
 }));
 
-const ZiweiForm = ({ onSubmit }) => {
+const ZiweiForm = ({ onSubmit, useWizardAnimation, setUseWizardAnimation }) => {
   const [formData, setFormData] = useState({
     gender: '',
     birth_year: '',
@@ -204,16 +206,19 @@ const ZiweiForm = ({ onSubmit }) => {
               animate={{ scale: 1 }}
               transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
             >
-              <Typography 
-                variant="h3" 
-                component="h1" 
+              <Typography
+                variant="h3"
+                component="h1"
                 gutterBottom
-                sx={{ 
+                sx={{
                   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   fontWeight: 700,
-                  mb: 2
+                  mb: 2,
+                  fontSize: { xs: '1.8rem', sm: '2.5rem', md: '3rem' },
+                  textAlign: 'center',
+                  lineHeight: 1.2
                 }}
               >
                 🌟 紫微斗數 AI 系統
@@ -413,6 +418,38 @@ const ZiweiForm = ({ onSubmit }) => {
                 {errors.domain}
               </Typography>
             )}
+
+            {/* 動畫風格選擇 */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.4 }}
+            >
+              <Box sx={{ mt: 3, textAlign: 'center' }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={useWizardAnimation}
+                      onChange={(e) => setUseWizardAnimation(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2">
+                        {useWizardAnimation ? '🧙‍♂️ 巫師占卜動畫' : '⚡ 科技載入動畫'}
+                      </Typography>
+                    </Box>
+                  }
+                  sx={{
+                    '& .MuiFormControlLabel-label': {
+                      color: 'text.secondary',
+                      fontSize: '0.9rem'
+                    }
+                  }}
+                />
+              </Box>
+            </motion.div>
 
             {/* 提交按鈕 */}
             <Box textAlign="center" mt={4}>
