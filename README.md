@@ -1,6 +1,12 @@
-# Multi-Agent 紫微斗數 AI 系統
+# 🌟 Multi-Agent 紫微斗數 AI 系統 (Full-Stack)
 
 一個基於多智能體協作的紫微斗數命理分析系統，結合了 RAG（檢索增強生成）技術和先進的 AI 模型。
+
+**🆕 最新版本特色**:
+- ✅ **完整前後端系統** - FastAPI + React 全棧應用
+- ✅ **現代化 UI 界面** - Material-UI + Framer Motion 動畫
+- ✅ **響應式設計** - 支援桌面和移動設備
+- ✅ **實時 API 整合** - 前後端無縫連接
 
 ## 🌟 系統特色
 

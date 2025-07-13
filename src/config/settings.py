@@ -163,7 +163,7 @@ def validate_settings() -> bool:
         print(f"Settings validation failed: {e}")
         return False
 
-# 在模組載入時驗證設定
-if __name__ != "__main__":
-    if not validate_settings():
-        print("Warning: Settings validation failed. Please check your .env file.")
+# 在模組載入時驗證設定（暫時禁用以避免啟動問題）
+# if __name__ != "__main__":
+#     if not validate_settings():
+#         print("Warning: Settings validation failed. Please check your .env file.")

@@ -112,7 +112,14 @@ vector_db_*/
 *.sqlite
 *.sqlite3
 
-# Node.js (如果有前端)
+# Node.js / React 前端
+frontend/node_modules/
+frontend/build/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.eslintcache
+frontend/coverage/
 node_modules/
 npm-debug.log*
 yarn-debug.log*
