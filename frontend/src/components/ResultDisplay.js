@@ -194,21 +194,63 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
     // 將 *text* 轉換為斜體
     processedText = processedText.replace(/\*([^*]+?)\*/g, '<em class="md-em">$1</em>');
 
-    // 處理有序列表
-    processedText = processedText.replace(/^(\d+)\. (.+)$/gm, '<li class="md-li">$2</li>');
+    // 處理有序列表 - 改進的邏輯
+    const lines = processedText.split('\n');
+    let inOrderedList = false;
+    let inUnorderedList = false;
+    let result = [];
 
-    // 處理無序列表
-    processedText = processedText.replace(/^- (.+)$/gm, '<li class="md-li">$1</li>');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
 
-    // 將連續的 li 包裝在 ol 或 ul 中
-    processedText = processedText.replace(/(<li class="md-li">.*?<\/li>)/gs, (match) => {
-      // 檢查是否是有序列表（包含數字）
-      if (text.match(/^\d+\./m)) {
-        return `<ol class="md-ol">${match}</ol>`;
-      } else {
-        return `<ul class="md-ul">${match}</ul>`;
+      // 檢查有序列表項目
+      const orderedMatch = line.match(/^(\d+)\.\s+(.+)$/);
+      if (orderedMatch) {
+        if (!inOrderedList) {
+          if (inUnorderedList) {
+            result.push('</ul>');
+            inUnorderedList = false;
+          }
+          result.push('<ol class="md-ol">');
+          inOrderedList = true;
+        }
+        result.push(`<li class="md-li">${orderedMatch[2]}</li>`);
+        continue;
       }
-    });
+
+      // 檢查無序列表項目
+      const unorderedMatch = line.match(/^-\s+(.+)$/);
+      if (unorderedMatch) {
+        if (!inUnorderedList) {
+          if (inOrderedList) {
+            result.push('</ol>');
+            inOrderedList = false;
+          }
+          result.push('<ul class="md-ul">');
+          inUnorderedList = true;
+        }
+        result.push(`<li class="md-li">${unorderedMatch[1]}</li>`);
+        continue;
+      }
+
+      // 非列表項目
+      if (inOrderedList) {
+        result.push('</ol>');
+        inOrderedList = false;
+      }
+      if (inUnorderedList) {
+        result.push('</ul>');
+        inUnorderedList = false;
+      }
+
+      result.push(line);
+    }
+
+    // 關閉未關閉的列表
+    if (inOrderedList) result.push('</ol>');
+    if (inUnorderedList) result.push('</ul>');
+
+    processedText = result.join('\n');
 
     // 將雙換行轉換為段落分隔
     processedText = processedText.replace(/\n\n/g, '</p><p class="md-p">');
@@ -316,18 +358,31 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
             >
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <Button
-                  variant="outlined"
+                  variant="contained"
                   startIcon={<ShareIcon />}
                   onClick={handleShare}
-                  sx={{ borderRadius: '20px' }}
+                  sx={{ 
+                    borderRadius: '20px',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                    }
+                  }}
                 >
                   分享結果
                 </Button>
                 <Button
-                  variant="outlined"
+                  variant="contained"
                   startIcon={<DownloadIcon />}
                   onClick={handleDownload}
-                  sx={{ borderRadius: '20px' }}
+                  //sx={{ borderRadius: '20px' }}
+                  sx={{ 
+                    borderRadius: '20px',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                    }
+                  }}
                 >
                   下載報告
                 </Button>
@@ -338,6 +393,9 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
                   sx={{ 
                     borderRadius: '20px',
                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%)',
+                    }
                   }}
                 >
                   重新分析

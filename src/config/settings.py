@@ -17,7 +17,7 @@ class OpenAISettings(BaseSettings):
     base_url: str = Field("https://api.openai.com/v1", env="OPENAI_BASE_URL")
     model_gpt4o: str = Field("gpt-4o-mini", env="OPENAI_MODEL_GPT4O")
     model_gpt4: str = Field("gpt-4-turbo", env="OPENAI_MODEL_GPT4")
-    timeout: int = Field(60, env="OPENAI_TIMEOUT")
+    timeout: int = Field(30, env="OPENAI_TIMEOUT")  # 減少OpenAI API超時
     max_retries: int = Field(3, env="OPENAI_MAX_RETRIES")
 
     model_config = {"protected_namespaces": ()}
@@ -27,7 +27,7 @@ class AnthropicSettings(BaseSettings):
     api_key: Optional[str] = Field(None, env="ANTHROPIC_API_KEY")
     base_url: str = Field("https://api.anthropic.com", env="ANTHROPIC_BASE_URL")
     model: str = Field("claude-3-5-sonnet-20241022", env="ANTHROPIC_MODEL")
-    timeout: int = Field(60, env="ANTHROPIC_TIMEOUT")
+    timeout: int = Field(35, env="ANTHROPIC_TIMEOUT")  # 減少Anthropic API超時
     max_retries: int = Field(3, env="ANTHROPIC_MAX_RETRIES")
 
 class MCPSettings(BaseSettings):
@@ -67,7 +67,7 @@ class MultiAgentSettings(BaseSettings):
     domain_agent_role: str = Field("professional_expertise", env="DOMAIN_AGENT_ROLE")
     
     coordinator_max_iterations: int = Field(5, env="COORDINATOR_MAX_ITERATIONS")
-    coordinator_timeout: int = Field(60, env="COORDINATOR_TIMEOUT")
+    coordinator_timeout: int = Field(45, env="COORDINATOR_TIMEOUT")  # 減少協調器超時
 
 class AppSettings(BaseSettings):
     """應用程式設定"""

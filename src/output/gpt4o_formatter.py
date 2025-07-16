@@ -166,8 +166,57 @@ class GPT4oFormatter:
             temperature=0.3,  # 稍高的溫度讓論述更自然
         )
 
-        return response.choices[0].message.content
-    
+        # 修復編號格式問題
+        formatted_text = self._fix_numbering_format(response.choices[0].message.content)
+
+        return formatted_text
+
+    def _fix_numbering_format(self, text: str) -> str:
+        """修復編號格式問題，確保編號連續"""
+        import re
+
+        lines = text.split('\n')
+        fixed_lines = []
+        current_number = 1
+
+        for line in lines:
+            # 檢查是否為編號行
+            match = re.match(r'^(\s*)(\d+)\.\s+(.+)', line)
+            if match:
+                indent = match.group(1)
+                original_number = int(match.group(2))
+                content = match.group(3)
+
+                # 如果原始編號是1，但當前編號不是1，說明可能是重新開始的編號
+                if original_number == 1 and current_number > 1:
+                    # 檢查是否真的是新的列表開始（通過檢查前面的內容）
+                    # 如果前面有標題或空行，可能是新列表
+                    prev_lines = fixed_lines[-3:] if len(fixed_lines) >= 3 else fixed_lines
+                    has_section_break = any(
+                        line.strip().startswith('#') or
+                        '**' in line or
+                        line.strip() == '' or
+                        any(keyword in line for keyword in ['建議', '注意', '提醒', '指導'])
+                        for line in prev_lines
+                    )
+
+                    if not has_section_break:
+                        # 不是新列表，繼續編號
+                        fixed_line = f"{indent}{current_number}. {content}"
+                    else:
+                        # 是新列表，但仍然繼續編號以保持一致性
+                        fixed_line = f"{indent}{current_number}. {content}"
+                else:
+                    # 使用當前編號
+                    fixed_line = f"{indent}{current_number}. {content}"
+
+                fixed_lines.append(fixed_line)
+                current_number += 1
+            else:
+                fixed_lines.append(line)
+
+        return '\n'.join(fixed_lines)
+
     def _get_json_template(self, domain_type: str) -> Dict[str, Any]:
         """獲取JSON模板"""
         
@@ -263,10 +312,11 @@ JSON模板結構：
 7. 使用繁體中文
 
 特別注意：
-- suggestions 應包含3-5個實用建議
-- precautions 應包含2-3個注意事項
+- suggestions 應包含3-5個實用建議，每個建議都是完整的句子
+- precautions 應包含2-3個注意事項，每個注意事項都是完整的句子
 - detailed_analysis 應該是完整的分析總結
 - 所有評分和時間預測要合理
+- 建議和注意事項不要包含編號，只需要純文字內容
 
 請直接返回格式化後的JSON，不要包含其他說明文字。"""
 
@@ -318,10 +368,14 @@ JSON模板結構：
 - 使用 ### 作為次級標題（如：### 詳細分析）
 - 使用 **粗體** 強調重要內容
 - 使用適當的段落分隔，讓內容易於閱讀
+- 對於建議和注意事項，使用連續的編號格式，不要在不同段落中重新開始編號
 
-特別注意：
+特別注意編號格式：
+- 如果有多個列表段落（如建議、注意事項），編號必須連續進行
+- 例如：建議部分用1.2.3.4.5.，注意事項部分接續用6.7.8.
+- 絕對不要在新段落中重新從1.開始編號
 - 將評分轉換為文字描述（如：7分 → "整體運勢相當不錯"）
-- 將陣列項目自然融入段落中
+- 將陣列項目自然融入段落中，如果是建議列表請使用連續的編號格式
 - 保持專業術語的準確性
 - 讓讀者感受到個人化的關懷
 

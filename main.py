@@ -21,22 +21,34 @@ from src.mcp.tools.ziwei_tool import ZiweiTool
 from src.rag.rag_system import ZiweiRAGSystem
 from src.output.gpt4o_formatter import GPT4oFormatter
 from src.config.settings import get_settings
+from src.utils.cache_manager import get_cache_manager
+from src.utils.error_handler import get_error_guidance
+from performance_config import get_config_by_name, apply_config
 
 # 載入設定
 settings = get_settings()
 
 class ZiweiAISystem:
     """紫微斗數AI系統主類"""
-    
-    def __init__(self, logger=None):
-        """初始化系統"""
+
+    def __init__(self, logger=None, performance_config='default'):
+        """
+        初始化系統
+
+        Args:
+            logger: 日誌記錄器
+            performance_config: 性能配置 ('default', 'fast', 'balanced', 'quality')
+        """
         self.logger = logger or self._setup_logger()
+        self.performance_config = get_config_by_name(performance_config)
+        self.logger.info(f"使用性能配置: {performance_config}")
         
         # 系統組件
         self.coordinator = None
         self.ziwei_tool = None
         self.rag_system = None
         self.formatter = None
+        self.cache_manager = get_cache_manager()  # 初始化快取管理器
         
         # 系統狀態
         self.is_initialized = False
@@ -127,9 +139,9 @@ class ZiweiAISystem:
                     "max_tokens": 2000
                 },
                 "rag": {
-                    "top_k": 5,
-                    "min_score": 0.6,
-                    "max_context_length": 4000
+                    "top_k": 3,  # 減少檢索數量從5到3
+                    "min_score": 0.7,  # 提高最小分數，獲得更精確結果
+                    "max_context_length": 3000  # 減少上下文長度
                 }
             }
 
@@ -267,9 +279,41 @@ class ZiweiAISystem:
             # 1. 獲取紫微斗數命盤數據
             self.logger.info("步驟 1: 獲取命盤數據...")
             chart_data = self.ziwei_tool.get_ziwei_chart(birth_data)
-            
+
             if not chart_data.get('success', False):
-                raise ValueError(f"命盤獲取失敗: {chart_data.get('error', '未知錯誤')}")
+                error_msg = chart_data.get('error', '未知錯誤')
+                self.logger.error(f"命盤獲取失敗: {error_msg}")
+
+                # 使用智能錯誤處理器提供詳細指導
+                if "輸入數據驗證失敗" in error_msg:
+                    error_guidance = get_error_guidance("data_validation", {
+                        "error_details": error_msg
+                    })
+                    detailed_error = error_guidance["message"]
+                elif "網絡" in error_msg or "連接" in error_msg:
+                    error_guidance = get_error_guidance("network_error", {
+                        "error_details": error_msg
+                    })
+                    detailed_error = error_guidance["message"]
+                else:
+                    error_guidance = get_error_guidance("parsing_error", {
+                        "error_details": error_msg
+                    })
+                    detailed_error = error_guidance["message"]
+
+                raise ValueError(detailed_error)
+
+            # 檢查數據質量
+            data_quality = chart_data.get('data_quality', {})
+            if data_quality and not data_quality.get('valid', True):
+                self.logger.warning(f"命盤數據質量較低: {data_quality}")
+
+                # 生成數據質量警告信息
+                quality_guidance = get_error_guidance("data_quality", {
+                    "quality_info": data_quality
+                })
+                self.logger.info(f"數據質量指導: {quality_guidance['message'][:200]}...")
+                # 記錄警告但繼續處理
             
             # 2. RAG 知識檢索
             self.logger.info("步驟 2: 檢索相關知識...")
@@ -352,8 +396,19 @@ class ZiweiAISystem:
             }
     
     async def _retrieve_knowledge(self, chart_data: Dict[str, Any], domain_type: str) -> str:
-        """檢索相關知識"""
+        """檢索相關知識（帶快取）"""
         try:
+            # 檢查快取
+            cache_key = {
+                'chart_data': chart_data,
+                'domain_type': domain_type,
+                'operation': 'knowledge_retrieval'
+            }
+
+            cached_result = self.cache_manager.get(cache_key)
+            if cached_result is not None:
+                self.logger.info("使用快取的知識檢索結果")
+                return cached_result
             # 構建查詢
             query_parts = []
             
@@ -375,13 +430,18 @@ class ZiweiAISystem:
             
             query_parts.extend(domain_queries.get(domain_type, domain_queries['comprehensive']))
             
-            # 執行知識檢索
-            query = ' '.join(query_parts[:10])  # 限制查詢長度
-            knowledge_results = self.rag_system.search_knowledge(query, top_k=5, min_score=0.6)
+            # 執行知識檢索 - 優化檢索參數
+            query = ' '.join(query_parts[:8])  # 進一步限制查詢長度
+            knowledge_results = self.rag_system.search_knowledge(query, top_k=3, min_score=0.7)
             
             # 整合知識片段
             knowledge_texts = [result['content'] for result in knowledge_results]
-            return '\n\n'.join(knowledge_texts)
+            knowledge_context = '\n\n'.join(knowledge_texts)
+
+            # 快取結果
+            self.cache_manager.set(cache_key, knowledge_context)
+
+            return knowledge_context
             
         except Exception as e:
             self.logger.error(f"知識檢索失敗: {str(e)}")

@@ -136,3 +136,47 @@ test_results/
 *.json
 !package.json
 !requirements.txt
+
+# 測試文件和調試文件
+test_*.py
+debug_*.py
+*_test.py
+test_*.html
+test_*.json
+*_test.txt
+*_response_*.html
+debug_full_response_*.html
+correct_encoding_*.html
+final_test_*.html
+ziwei_raw_response_*.html
+ziwei_parsed_data_*.json
+love_analysis_test.txt
+corrected_response.html
+debug_response.html
+performance_test_results_*.json
+
+# 快取文件
+cache/
+*.cache
+
+# PDF 文件（版權問題）
+*.pdf
+
+# 批次檔案
+*.bat
+
+# 特定測試和調試文件
+mcp_demo_response.json
+working_test_result.json
+test_result_*.json
+
+# 大型分析文件（可選）
+全部檔案逐行解析/
+前後端呈現畫面/
+
+# API 金鑰和敏感配置
+*key*
+*secret*
+*token*
+config/keys.py
+config/secrets.py

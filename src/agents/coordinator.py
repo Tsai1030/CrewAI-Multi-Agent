@@ -32,7 +32,7 @@ class AgentAssignment:
     agent: BaseAgent
     task: AgentTask
     priority: int = 1
-    timeout: int = 60
+    timeout: int = 45  # 減少單個Agent超時時間
 
 @dataclass
 class DiscussionRound:
@@ -76,10 +76,10 @@ class MultiAgentCoordinator:
         self.timeout = settings.multi_agent.coordinator_timeout
         self.default_strategy = CoordinationStrategy.DISCUSSION
 
-        # 討論設定
-        self.max_discussion_rounds = 3
-        self.consensus_threshold = 0.7
-        self.discussion_timeout = 120
+        # 討論設定 # 優化執行速度
+        self.max_discussion_rounds = 2  # 減少討論輪次從3到2
+        self.consensus_threshold = 0.6  # 降低共識閾值，更容易達成共識
+        self.discussion_timeout = 90    # 減少討論超時從120到90秒
         
     def _initialize_agents(self):
         """初始化所有Agent"""
