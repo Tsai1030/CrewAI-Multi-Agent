@@ -3,7 +3,7 @@
 """
 
 import os
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from pydantic import Field
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
@@ -31,7 +31,8 @@ class AnthropicSettings(BaseSettings):
     max_retries: int = Field(3, env="ANTHROPIC_MAX_RETRIES")
 
 class MCPSettings(BaseSettings):
-    """Claude MCP 設定"""
+    """MCP 設定 (支援統一 MCP 服務器)"""
+    # 舊的 Claude MCP 設定 (保留兼容性)
     server_host: str = Field("localhost", env="MCP_SERVER_HOST")
     server_port: int = Field(3000, env="MCP_SERVER_PORT")
     server_name: str = Field("ziwei-mcp-server", env="MCP_SERVER_NAME")
@@ -41,9 +42,45 @@ class MCPSettings(BaseSettings):
     )
     timeout: int = Field(30, env="MCP_TIMEOUT")
 
+    # 新的統一 MCP 服務器設定
+    unified_server_enabled: bool = Field(True, env="MCP_UNIFIED_SERVER_ENABLED")
+    unified_server_host: str = Field("localhost", env="MCP_UNIFIED_SERVER_HOST")
+    unified_server_port: int = Field(8001, env="MCP_UNIFIED_SERVER_PORT")
+    unified_server_timeout: int = Field(60, env="MCP_UNIFIED_SERVER_TIMEOUT")
+    max_retries: int = Field(3, env="MCP_MAX_RETRIES")
+    enable_logging: bool = Field(True, env="MCP_ENABLE_LOGGING")
+
+    # 工具配置
+    tools_config: Dict[str, Any] = {
+        "ziwei_scraper": {
+            "enabled": True,
+            "timeout": 60,
+            "max_retries": 3
+        },
+        "rag_knowledge": {
+            "enabled": True,
+            "timeout": 30,
+            "max_retries": 2
+        },
+        "format_output": {
+            "enabled": True,
+            "timeout": 20,
+            "max_retries": 2
+        },
+        "data_validator": {
+            "enabled": True,
+            "timeout": 10,
+            "max_retries": 1
+        }
+    }
+
     def get_tools_enabled_list(self) -> List[str]:
         """獲取啟用工具列表"""
         return [tool.strip() for tool in self.tools_enabled.split(",")]
+
+    def get_unified_server_url(self) -> str:
+        """獲取統一 MCP 服務器 URL"""
+        return f"http://{self.unified_server_host}:{self.unified_server_port}"
 
 class RAGSettings(BaseSettings):
     """RAG 系統設定"""
@@ -57,17 +94,39 @@ class RAGSettings(BaseSettings):
     top_k: int = Field(5, env="RAG_TOP_K")
 
 class MultiAgentSettings(BaseSettings):
-    """Multi-Agent 系統設定"""
+    """Multi-Agent 系統設定 (Legacy + CrewAI)"""
+    # Legacy Multi-Agent 設定
     claude_agent_enabled: bool = Field(True, env="CLAUDE_AGENT_ENABLED")
     gpt_agent_enabled: bool = Field(True, env="GPT_AGENT_ENABLED")
     domain_agent_enabled: bool = Field(True, env="DOMAIN_AGENT_ENABLED")
-    
+
     claude_agent_role: str = Field("reasoning_analysis", env="CLAUDE_AGENT_ROLE")
     gpt_agent_role: str = Field("creative_interpretation", env="GPT_AGENT_ROLE")
     domain_agent_role: str = Field("professional_expertise", env="DOMAIN_AGENT_ROLE")
-    
+
     coordinator_max_iterations: int = Field(5, env="COORDINATOR_MAX_ITERATIONS")
     coordinator_timeout: int = Field(45, env="COORDINATOR_TIMEOUT")  # 減少協調器超時
+
+class CrewAISettings(BaseSettings):
+    """CrewAI 框架設定"""
+    enabled: bool = Field(True, env="CREWAI_ENABLED")
+    verbose: bool = Field(True, env="CREWAI_VERBOSE")
+    memory_enabled: bool = Field(True, env="CREWAI_MEMORY_ENABLED")
+
+    # Agent 設定
+    max_iter: int = Field(5, env="CREWAI_MAX_ITER")
+    max_execution_time: int = Field(300, env="CREWAI_MAX_EXECUTION_TIME")  # 5分鐘
+
+    # 任務設定
+    process_type: str = Field("sequential", env="CREWAI_PROCESS_TYPE")  # sequential, hierarchical
+
+    # 工具設定
+    tools_timeout: int = Field(60, env="CREWAI_TOOLS_TIMEOUT")
+    tools_max_retries: int = Field(3, env="CREWAI_TOOLS_MAX_RETRIES")
+
+    # 性能設定
+    parallel_execution: bool = Field(False, env="CREWAI_PARALLEL_EXECUTION")
+    cache_enabled: bool = Field(True, env="CREWAI_CACHE_ENABLED")
 
 class AppSettings(BaseSettings):
     """應用程式設定"""
@@ -115,13 +174,14 @@ class CacheSettings(BaseSettings):
 
 class Settings(BaseSettings):
     """主要設定類別"""
-    
+
     # 子設定
     openai: OpenAISettings = OpenAISettings()
     anthropic: AnthropicSettings = AnthropicSettings()
     mcp: MCPSettings = MCPSettings()
     rag: RAGSettings = RAGSettings()
     multi_agent: MultiAgentSettings = MultiAgentSettings()
+    crewai: CrewAISettings = CrewAISettings()
     app: AppSettings = AppSettings()
     ziwei_website: ZiweiWebsiteSettings = ZiweiWebsiteSettings()
     logging: LoggingSettings = LoggingSettings()

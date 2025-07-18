@@ -1,6 +1,6 @@
 """
-紫微斗數AI系統 - 主程式
-整合 Multi-Agent + Claude MCP + RAG + GPT-4o 的完整系統
+紫微斗數AI系統 - 主程式 (CrewAI + MCP 架構)
+整合 CrewAI Multi-Agent + 統一 MCP 服務器 + RAG + GPT-4o 的完整系統
 """
 
 import asyncio
@@ -15,15 +15,18 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(override=True)
 
-# 導入系統組件
-from src.agents.coordinator import MultiAgentCoordinator, CoordinationStrategy
-from src.mcp.tools.ziwei_tool import ZiweiTool
-from src.rag.rag_system import ZiweiRAGSystem
-from src.output.gpt4o_formatter import GPT4oFormatter
+# 導入新的 CrewAI 系統組件
+from src.crew.crew_manager import ZiweiCrewManager, create_ziwei_crew_manager
 from src.config.settings import get_settings
 from src.utils.cache_manager import get_cache_manager
 from src.utils.error_handler import get_error_guidance
 from performance_config import get_config_by_name, apply_config
+
+# 保留舊系統組件作為備用
+from src.agents.coordinator import MultiAgentCoordinator, CoordinationStrategy
+from src.mcp.tools.ziwei_tool import ZiweiTool
+from src.rag.rag_system import ZiweiRAGSystem
+from src.output.gpt4o_formatter import GPT4oFormatter
 
 # 載入設定
 settings = get_settings()
@@ -31,30 +34,38 @@ settings = get_settings()
 class ZiweiAISystem:
     """紫微斗數AI系統主類"""
 
-    def __init__(self, logger=None, performance_config='default'):
+    def __init__(self, logger=None, performance_config='default', use_crewai=True):
         """
         初始化系統
 
         Args:
             logger: 日誌記錄器
             performance_config: 性能配置 ('default', 'fast', 'balanced', 'quality')
+            use_crewai: 是否使用新的 CrewAI 架構 (默認: True)
         """
         self.logger = logger or self._setup_logger()
         self.performance_config = get_config_by_name(performance_config)
+        self.use_crewai = use_crewai
         self.logger.info(f"使用性能配置: {performance_config}")
-        
-        # 系統組件
+
+        # 新架構組件 (CrewAI + MCP)
+        self.crew_manager = None
+
+        # 舊架構組件 (備用)
         self.coordinator = None
         self.ziwei_tool = None
         self.rag_system = None
         self.formatter = None
+
+        # 共用組件
         self.cache_manager = get_cache_manager()  # 初始化快取管理器
-        
+
         # 系統狀態
         self.is_initialized = False
         self.initialization_time = None
-        
-        self.logger.info("ZiweiAISystem initialized")
+
+        architecture = "CrewAI + MCP" if use_crewai else "Legacy Multi-Agent"
+        self.logger.info(f"ZiweiAISystem initialized (架構: {architecture})")
     
     def _setup_logger(self) -> logging.Logger:
         """設置日誌系統"""
@@ -85,31 +96,41 @@ class ZiweiAISystem:
         try:
             start_time = time.time()
             self.logger.info("開始初始化紫微斗數AI系統...")
-            
-            # 1. 初始化 Multi-Agent 協調器
-            self.logger.info("初始化 Multi-Agent 協調器...")
-            self.coordinator = MultiAgentCoordinator(logger=self.logger)
-            
-            # 2. 初始化紫微斗數工具
-            self.logger.info("初始化紫微斗數工具...")
-            self.ziwei_tool = ZiweiTool(logger=self.logger)
-            
-            # 3. 初始化 RAG 系統
-            self.logger.info("初始化 RAG 系統...")
-            self.rag_system = await self._initialize_rag_system()
-            
-            # 4. 初始化 GPT-4o 格式化器
-            self.logger.info("初始化 GPT-4o 格式化器...")
-            self.formatter = GPT4oFormatter(logger=self.logger)
-            
-            # 5. 載入紫微斗數知識庫
-            await self._load_knowledge_base()
-            
+
+            if self.use_crewai:
+                # 使用新的 CrewAI + MCP 架構
+                self.logger.info("初始化 CrewAI + MCP 架構...")
+                self.crew_manager = ZiweiCrewManager(logger=self.logger)
+                await self.crew_manager.initialize()
+            else:
+                # 使用舊的 Multi-Agent 架構
+                self.logger.info("初始化 Legacy Multi-Agent 架構...")
+
+                # 1. 初始化 Multi-Agent 協調器
+                self.logger.info("初始化 Multi-Agent 協調器...")
+                self.coordinator = MultiAgentCoordinator(logger=self.logger)
+
+                # 2. 初始化紫微斗數工具
+                self.logger.info("初始化紫微斗數工具...")
+                self.ziwei_tool = ZiweiTool(logger=self.logger)
+
+                # 3. 初始化 RAG 系統
+                self.logger.info("初始化 RAG 系統...")
+                self.rag_system = await self._initialize_rag_system()
+
+                # 4. 初始化 GPT-4o 格式化器
+                self.logger.info("初始化 GPT-4o 格式化器...")
+                self.formatter = GPT4oFormatter(logger=self.logger)
+
+                # 5. 載入紫微斗數知識庫
+                await self._load_knowledge_base()
+
             self.initialization_time = time.time() - start_time
             self.is_initialized = True
-            
-            self.logger.info(f"系統初始化完成，耗時 {self.initialization_time:.2f} 秒")
-            
+
+            architecture = "CrewAI + MCP" if self.use_crewai else "Legacy Multi-Agent"
+            self.logger.info(f"系統初始化完成 ({architecture})，耗時 {self.initialization_time:.2f} 秒")
+
         except Exception as e:
             self.logger.error(f"系統初始化失敗: {str(e)}")
             raise
@@ -259,23 +280,104 @@ class ZiweiAISystem:
                                  output_format: str = "json",
                                  show_agent_process: bool = False) -> Dict[str, Any]:
         """
-        完整的紫微斗數分析流程
-        
+        完整的紫微斗數分析流程 (支援 CrewAI + MCP 和 Legacy 架構)
+
         Args:
             birth_data: 出生資料 (gender, birth_year, birth_month, birth_day, birth_hour)
             domain_type: 分析領域 (love, wealth, future, comprehensive)
             user_profile: 用戶背景資料
-            
+            output_format: 輸出格式 (json, detailed, summary, etc.)
+            show_agent_process: 是否顯示 Agent 處理過程
+
         Returns:
             完整的分析結果
         """
         if not self.is_initialized:
             await self.initialize()
-        
+
         try:
             start_time = time.time()
-            self.logger.info(f"開始分析紫微斗數命盤，領域: {domain_type}")
-            
+            architecture = "CrewAI + MCP" if self.use_crewai else "Legacy Multi-Agent"
+            self.logger.info(f"開始分析紫微斗數命盤 ({architecture})，領域: {domain_type}")
+
+            if self.use_crewai:
+                # 使用新的 CrewAI + MCP 架構
+                return await self._analyze_with_crewai(
+                    birth_data=birth_data,
+                    domain_type=domain_type,
+                    output_format=output_format,
+                    show_process=show_agent_process,
+                    start_time=start_time
+                )
+            else:
+                # 使用舊的 Legacy 架構
+                return await self._analyze_with_legacy(
+                    birth_data=birth_data,
+                    domain_type=domain_type,
+                    user_profile=user_profile,
+                    output_format=output_format,
+                    show_agent_process=show_agent_process,
+                    start_time=start_time
+                )
+
+        except Exception as e:
+            processing_time = time.time() - start_time
+            self.logger.error(f"分析失敗: {str(e)} (耗時 {processing_time:.2f}s)")
+
+            return {
+                "success": False,
+                "error": str(e),
+                "processing_time": processing_time,
+                "architecture": "CrewAI + MCP" if self.use_crewai else "Legacy Multi-Agent",
+                "timestamp": datetime.now().isoformat()
+            }
+
+    async def _analyze_with_crewai(self, birth_data: Dict[str, Any], domain_type: str,
+                                  output_format: str, show_process: bool, start_time: float) -> Dict[str, Any]:
+        """使用 CrewAI + MCP 架構進行分析"""
+        try:
+            self.logger.info("🚀 使用 CrewAI + MCP 架構進行分析...")
+
+            if show_process:
+                print(f"🤖 架構: CrewAI + MCP")
+                print(f"📊 分析領域: {domain_type}")
+                print(f"📝 輸出格式: {output_format}")
+                print("-" * 60)
+
+            # 調用 CrewAI 管理器進行分析
+            result = await self.crew_manager.analyze_ziwei_chart(
+                birth_data=birth_data,
+                domain_type=domain_type,
+                output_format=output_format
+            )
+
+            if show_process and result.get("success", False):
+                metadata = result.get("metadata", {})
+                print(f"\n✅ CrewAI 分析完成:")
+                print(f"   處理時間: {metadata.get('processing_time', 0):.2f}s")
+                print(f"   使用的 Agents: {', '.join(metadata.get('agents_used', []))}")
+                print(f"   完成的任務: {metadata.get('tasks_completed', 0)} 個")
+                print("=" * 60)
+
+            # 添加總處理時間
+            total_time = time.time() - start_time
+            if isinstance(result, dict):
+                result["total_processing_time"] = total_time
+                result["architecture"] = "CrewAI + MCP"
+
+            return result
+
+        except Exception as e:
+            self.logger.error(f"CrewAI 分析失敗: {str(e)}")
+            raise
+
+    async def _analyze_with_legacy(self, birth_data: Dict[str, Any], domain_type: str,
+                                  user_profile: Optional[Dict[str, Any]], output_format: str,
+                                  show_agent_process: bool, start_time: float) -> Dict[str, Any]:
+        """使用 Legacy Multi-Agent 架構進行分析"""
+        try:
+            self.logger.info("🔄 使用 Legacy Multi-Agent 架構進行分析...")
+
             # 1. 獲取紫微斗數命盤數據
             self.logger.info("步驟 1: 獲取命盤數據...")
             chart_data = self.ziwei_tool.get_ziwei_chart(birth_data)

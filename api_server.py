@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 # 創建 FastAPI 應用
 app = FastAPI(
     title="紫微斗數 AI 系統 API",
-    description="Multi-Agent 紫微斗數命理分析系統",
-    version="1.0.0"
+    description="CrewAI + MCP 多智能體紫微斗數命理分析系統",
+    version="2.0.0"
 )
 
 # 配置 CORS
@@ -48,8 +48,9 @@ class BirthData(BaseModel):
 class AnalysisRequest(BaseModel):
     birth_data: BirthData
     domain_type: str = Field(default="comprehensive", description="分析領域")
-    output_format: str = Field(default="json_to_narrative", description="輸出格式")
-    show_agent_process: bool = Field(default=False, description="是否顯示 Agent 過程") # 🎯 顯示 Agent 過程
+    output_format: str = Field(default="detailed", description="輸出格式")
+    show_agent_process: bool = Field(default=False, description="是否顯示 Agent 過程")
+    use_crewai: bool = Field(default=True, description="是否使用 CrewAI 架構")
 
 # 響應模型
 class AnalysisResponse(BaseModel):
@@ -57,11 +58,13 @@ class AnalysisResponse(BaseModel):
     result: Optional[str] = None
     error: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    architecture: Optional[str] = None  # 新增：使用的架構類型
 
 class SystemStatus(BaseModel):
     status: str
     initialized: bool
     components: Dict[str, bool]
+    architecture: str  # 新增：當前使用的架構
     timestamp: str
 
 # 啟動事件
@@ -71,9 +74,11 @@ async def startup_event():
     global ai_system
     try:
         logger.info("🚀 正在初始化紫微斗數 AI 系統...")
-        ai_system = ZiweiAISystem()
+        # 默認使用 CrewAI 架構
+        ai_system = ZiweiAISystem(use_crewai=True)
         await ai_system.initialize()
-        logger.info("✅ AI 系統初始化完成")
+        architecture = "CrewAI + MCP" if ai_system.use_crewai else "Legacy Multi-Agent"
+        logger.info(f"✅ AI 系統初始化完成 ({architecture})")
     except Exception as e:
         logger.error(f"❌ AI 系統初始化失敗: {str(e)}")
         ai_system = None
@@ -94,9 +99,12 @@ async def shutdown_event():
 @app.get("/")
 async def root():
     """根路由"""
+    global ai_system
+    architecture = "CrewAI + MCP" if (ai_system and ai_system.use_crewai) else "Legacy Multi-Agent"
     return {
         "message": "紫微斗數 AI 系統 API",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "architecture": architecture,
         "status": "running"
     }
 
@@ -110,22 +118,27 @@ async def health_check():
             status="error",
             initialized=False,
             components={},
+            architecture="Unknown",
             timestamp=datetime.now().isoformat()
         )
-    
+
     try:
         system_status = ai_system.get_system_status()
+        architecture = "CrewAI + MCP" if ai_system.use_crewai else "Legacy Multi-Agent"
         return SystemStatus(
             status="healthy" if system_status["initialized"] else "initializing",
             initialized=system_status["initialized"],
             components=system_status["components"],
+            architecture=architecture,
             timestamp=system_status["timestamp"]
         )
     except Exception as e:
+        architecture = "CrewAI + MCP" if ai_system.use_crewai else "Legacy Multi-Agent"
         return SystemStatus(
             status="error",
             initialized=False,
             components={},
+            architecture=architecture,
             timestamp=datetime.now().isoformat()
         )
 
@@ -141,11 +154,19 @@ async def analyze_chart(request: AnalysisRequest):
         )
     
     try:
-        logger.info(f"🔮 開始分析命盤: {request.birth_data.dict()}")
-        
+        # 檢查是否需要切換架構
+        if hasattr(request, 'use_crewai') and request.use_crewai != ai_system.use_crewai:
+            logger.info(f"🔄 切換架構: {'CrewAI + MCP' if request.use_crewai else 'Legacy Multi-Agent'}")
+            ai_system.use_crewai = request.use_crewai
+            # 重新初始化系統
+            await ai_system.initialize()
+
+        architecture = "CrewAI + MCP" if ai_system.use_crewai else "Legacy Multi-Agent"
+        logger.info(f"🔮 開始分析命盤 ({architecture}): {request.birth_data.dict()}")
+
         # 轉換請求數據
         birth_data = request.birth_data.dict()
-        
+
         # 執行分析
         result = await ai_system.analyze_ziwei_chart(
             birth_data=birth_data,
@@ -153,19 +174,21 @@ async def analyze_chart(request: AnalysisRequest):
             output_format=request.output_format,
             show_agent_process=request.show_agent_process
         )
-        
-        if result["success"]:
-            logger.info("✅ 分析完成")
+
+        if result.get("success", False):
+            logger.info(f"✅ 分析完成 ({architecture})")
             return AnalysisResponse(
                 success=True,
-                result=result["result"],
-                metadata=result["metadata"]
+                result=result.get("result"),
+                metadata=result.get("metadata"),
+                architecture=result.get("architecture", architecture)
             )
         else:
-            logger.error(f"❌ 分析失敗: {result['error']}")
+            logger.error(f"❌ 分析失敗: {result.get('error', '未知錯誤')}")
             return AnalysisResponse(
                 success=False,
-                error=result["error"]
+                error=result.get("error", "未知錯誤"),
+                architecture=result.get("architecture", architecture)
             )
             
     except Exception as e:
@@ -219,6 +242,72 @@ async def get_birth_hours():
             {"id": "戌", "name": "戌時", "time": "19:00-21:00"},
             {"id": "亥", "name": "亥時", "time": "21:00-23:00"}
         ]
+    }
+
+@app.post("/switch-architecture")
+async def switch_architecture(use_crewai: bool):
+    """切換系統架構"""
+    global ai_system
+
+    if not ai_system:
+        raise HTTPException(
+            status_code=503,
+            detail="AI 系統未初始化"
+        )
+
+    try:
+        current_architecture = "CrewAI + MCP" if ai_system.use_crewai else "Legacy Multi-Agent"
+        new_architecture = "CrewAI + MCP" if use_crewai else "Legacy Multi-Agent"
+
+        if ai_system.use_crewai == use_crewai:
+            return {
+                "success": True,
+                "message": f"已經在使用 {current_architecture} 架構",
+                "current_architecture": current_architecture
+            }
+
+        logger.info(f"🔄 切換架構: {current_architecture} -> {new_architecture}")
+
+        # 清理當前系統
+        if hasattr(ai_system, 'cleanup'):
+            await ai_system.cleanup()
+
+        # 重新創建系統
+        ai_system = ZiweiAISystem(use_crewai=use_crewai)
+        await ai_system.initialize()
+
+        logger.info(f"✅ 架構切換完成: {new_architecture}")
+
+        return {
+            "success": True,
+            "message": f"成功切換到 {new_architecture} 架構",
+            "previous_architecture": current_architecture,
+            "current_architecture": new_architecture
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 架構切換失敗: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"架構切換失敗: {str(e)}"
+        )
+
+@app.get("/architecture")
+async def get_current_architecture():
+    """獲取當前使用的架構"""
+    global ai_system
+
+    if not ai_system:
+        return {
+            "architecture": "Unknown",
+            "initialized": False
+        }
+
+    architecture = "CrewAI + MCP" if ai_system.use_crewai else "Legacy Multi-Agent"
+    return {
+        "architecture": architecture,
+        "initialized": ai_system.is_initialized,
+        "use_crewai": ai_system.use_crewai
     }
 
 if __name__ == "__main__":

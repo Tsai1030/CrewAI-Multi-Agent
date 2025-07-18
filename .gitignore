@@ -169,10 +169,37 @@ cache/
 mcp_demo_response.json
 working_test_result.json
 test_result_*.json
+check_*.py
+fix_*.py
+demo_*.py
+quick_*.py
+simple_*.py
+final_*_test.py
+backend_format_demo.py
 
-# 大型分析文件（可選）
+# 分析和文檔文件（保留核心文檔）
 全部檔案逐行解析/
-前後端呈現畫面/
+BGE_HUGGINGFACE_MIGRATION_SUMMARY.md
+COMPLETE_SYSTEM_ARCHITECTURE.md
+FIXES_SUMMARY.md
+MCP_TOOL_TEST_REPORT.md
+PROJECT_STATUS_FINAL.md
+UPLOAD_CHECKLIST.md
+VECTOR_DB_MIGRATION_SUMMARY.md
+VECTOR_DB_USAGE.md
+claude_mcp_setup.md
+full-multi-agent.md
+project_structure.md
+外網訪問設定說明.md
+
+# 保留前後端展示畫面（重要）
+# 前後端呈現畫面/
+
+# 多個 requirements 文件（保留主要的）
+requirements_clean.txt
+requirements_core.txt
+requirements_minimal.txt
+requirements_new.txt
 
 # API 金鑰和敏感配置
 *key*
@@ -180,3 +207,6 @@ test_result_*.json
 *token*
 config/keys.py
 config/secrets.py
+
+# 配置文件
+ngrok.yml

@@ -1,0 +1,248 @@
+# 紫微斗數AI系統絕對必要依賴包 - CrewAI + MCP 架構
+
+# ===== 核心框架 =====
+# CrewAI 多智能體框架
+crewai==0.28.8
+crewai-tools==0.1.6
+
+# FastAPI Web 框架
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+
+# ===== AI 和機器學習 =====
+# LLM 客戶端
+openai>=1.13.3,<2.0.0
+anthropic==0.8.1
+
+# LangChain 生態系統
+langchain>=0.1.10,<0.2.0
+langchain-community>=0.0.38,<0.1.0
+langchain-core>=0.1.28,<0.2.0
+langchain-openai>=0.1.7,<0.2.0
+
+# 嵌入和向量數據庫
+sentence-transformers==2.2.2
+chromadb==0.4.24
+
+# ===== 數據處理 =====
+# 基礎數據處理
+pandas==2.1.4
+numpy>=1.22.5,<2.0.0
+
+# 文本處理
+jieba==0.42.1
+
+# ===== 網頁爬蟲 =====
+requests>=2.31.0,<3.0.0
+beautifulsoup4>=4.12.3,<5.0.0
+lxml==4.9.3
+
+# ===== 配置和環境 =====
+# 配置管理
+python-dotenv>=1.0.0,<2.0.0
+pydantic>=2.4.2,<3.0.0
+pydantic-settings>=2.1.0,<3.0.0
+
+# ===== 工具庫 =====
+# 日誌
+loguru==0.7.2
+
+# 異步和並發
+tenacity>=8.2.3,<9.0.0
+
+# ===== 文件處理 =====
+aiofiles==23.2.1
+
+# ===== 安全 =====
+cryptography>=42.0.0,<43.0.0
+
+# ===== JSON 和序列化 =====
+orjson>=3.9.12,<4.0.0
+
+# ===== 時間處理 =====
+python-dateutil>=2.8.2,<3.0.0
+
+# ===== 測試 =====
+pytest>=7.4.3,<8.0.0
+pytest-asyncio>=0.21.1,<1.0.0
+
+# ===== 其他必要依賴 =====
+# 類型檢查支持
+typing-extensions>=4.12.2,<5.0.0
+
+# 異步支持
+anyio>=4.0.0,<5.0.0
+
+# Web 相關
+python-multipart>=0.0.6,<1.0.0
+
+# 配置文件格式
+pyyaml>=6.0.0,<7.0.0
+
+# 高性能 JSON
+ujson>=5.8.0,<6.0.0
+
+# 環境變量
+python-decouple==3.8
+
+# 異步 HTTP
+aiohttp>=3.9.1,<4.0.0
+
+# 數據驗證
+marshmallow>=3.18.0,<4.0.0
+
+# 網絡工具
+urllib3>=2.1.0,<3.0.0
+
+# 網絡請求
+certifi>=2023.7.22
+
+# 時區處理
+pytz>=2023.3,<2024.0
+
+# 系統監控
+psutil>=5.9.6,<6.0.0
+
+# 文件編碼檢測
+chardet==5.2.0
+
+# 協議緩衝區
+protobuf>=4.21.0,<5.0.0
+
+# 結構化日誌
+structlog>=23.2.0,<24.0.0
+
+# 配置文件格式
+toml>=0.10.2,<1.0.0
+
+# 時區數據
+tzdata>=2023.3
+
+# 機器學習管道
+joblib>=1.3.2,<2.0.0
+
+# 統計分析
+scipy==1.11.4
+
+# 機器學習工具
+scikit-learn>=1.3.2,<2.0.0
+
+# 自然語言處理
+nltk==3.8.1
+
+# PDF 處理
+pypdf>=4.0.1,<5.0.0
+
+# 可視化
+matplotlib>=3.8.2,<4.0.0
+
+# 圖像處理
+Pillow>=10.1.0,<11.0.0
+
+# 數據庫
+sqlalchemy>=2.0.23,<3.0.0
+redis>=5.0.1,<6.0.0
+
+# 開發工具
+black>=23.11.0,<24.0.0
+isort>=5.12.0,<6.0.0
+
+# 網頁自動化
+selenium>=4.18.1,<5.0.0
+
+# 向量數據庫
+faiss-cpu==1.7.4
+
+# Hugging Face 模型支持
+transformers>=4.36.0,<5.0.0
+torch>=2.1.0,<3.0.0
+tokenizers>=0.15.0,<1.0.0
+
+# 數據可視化
+plotly>=5.17.0,<6.0.0
+
+# 命令行工具
+click>=8.1.7,<9.0.0
+rich>=13.7.0,<14.0.0
+
+# 進度條
+tqdm>=4.65.0,<5.0.0
+
+# HTTP 客戶端
+httpx>=0.25.2,<1.0.0
+
+# JSON Schema 驗證
+jsonschema>=4.20.0,<5.0.0
+
+# 編碼檢測
+charset-normalizer>=3.3.2,<4.0.0
+
+# 網絡協議
+websockets>=12.0,<13.0.0
+
+# 緩存支持
+cachetools>=5.3.0,<6.0.0
+
+# 重試機制
+backoff>=2.2.1,<3.0.0
+
+# 數據類支持
+dataclasses-json>=0.5.7,<0.7.0
+
+# 正則表達式增強
+regex>=2023.12.25,<2024.0.0
+
+# 異步支持
+sniffio>=1.3.0,<2.0.0
+
+# 網絡請求
+idna>=3.4,<4.0.0
+
+# 並發處理
+concurrent-futures==3.1.1
+
+# 數據壓縮
+lz4>=4.3.2,<5.0.0
+
+# 異步 MQTT
+asyncio-mqtt==0.13.0
+
+# 文件路徑處理
+pathlib2==2.3.7
+
+# 進度顯示
+alive-progress>=3.1.5,<4.0.0
+
+# 文件監控
+watchdog>=3.0.0,<4.0.0
+
+# 配置驗證
+cerberus>=1.3.4,<2.0.0
+
+# 壓縮支持
+zstandard>=0.21.0,<1.0.0
+
+# 多進程支持
+multiprocessing-logging>=0.3.4,<1.0.0
+
+# 加密和哈希
+bcrypt>=4.0.1,<5.0.0
+
+# 模板引擎
+jinja2>=3.1.2,<4.0.0
+
+# 命令行工具
+typer>=0.9.0,<1.0.0
+
+# 代碼檢查
+flake8>=6.1.0,<7.0.0
+mypy>=1.7.1,<2.0.0
+
+# 測試模擬
+pytest-mock>=3.12.0,<4.0.0
+
+# 文檔生成
+sphinx>=7.2.6,<8.0.0
+
+# 監控和指標
+prometheus-client>=0.19.0,<1.0.0
