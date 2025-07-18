@@ -566,6 +566,681 @@ graph TD
 - **標準化的接口**：統一的調用方式
 - **配置化的行為**：靈活的參數調整
 
+## 📚 向量數據庫與 RAG 系統
+
+### 🔍 系統概述
+
+本系統採用 **BGE-M3 + ChromaDB** 的 RAG 架構，專門針對紫微斗數知識進行優化，提供高精度的語義檢索和知識增強功能。
+
+```mermaid
+graph TB
+    subgraph "文檔處理 Document Processing"
+        DOC[PDF/TXT 文檔] --> LOAD[文檔載入]
+        LOAD --> CLEAN[文本清理]
+        CLEAN --> SEG[中文分詞]
+        SEG --> SPLIT[文本分割]
+    end
+
+    subgraph "向量化 Vectorization"
+        SPLIT --> BGE[BGE-M3 嵌入]
+        BGE --> VEC[向量生成]
+    end
+
+    subgraph "存儲 Storage"
+        VEC --> CHROMA[ChromaDB]
+        CHROMA --> INDEX[索引建立]
+    end
+
+    subgraph "檢索 Retrieval"
+        QUERY[用戶查詢] --> EMBED[查詢向量化]
+        EMBED --> SEARCH[相似度搜索]
+        INDEX --> SEARCH
+        SEARCH --> RANK[結果排序]
+        RANK --> FILTER[結果過濾]
+    end
+
+    style DOC fill:#e3f2fd
+    style BGE fill:#e8f5e8
+    style CHROMA fill:#fff3e0
+    style QUERY fill:#fce4ec
+```
+
+### 1. 📄 文本預處理流程
+
+#### 1.1 文檔載入方法
+
+<augment_code_snippet path="src/rag/document_loader.py" mode="EXCERPT">
+````python
+import PyPDF2
+import chardet
+from pathlib import Path
+from typing import List, Dict, Any
+
+class DocumentLoader:
+    """多格式文檔載入器"""
+
+    def __init__(self):
+        self.supported_formats = ['.pdf', '.txt', '.md']
+
+    def load_pdf(self, file_path: str) -> str:
+        """載入 PDF 文檔"""
+        text = ""
+        with open(file_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+        return text
+
+    def load_txt(self, file_path: str) -> str:
+        """載入文本文檔（自動檢測編碼）"""
+        # 檢測文件編碼
+        with open(file_path, 'rb') as file:
+            raw_data = file.read()
+            encoding = chardet.detect(raw_data)['encoding']
+
+        # 使用檢測到的編碼讀取文件
+        with open(file_path, 'r', encoding=encoding) as file:
+            return file.read()
+````
+</augment_code_snippet>
+
+#### 1.2 文本清理和標準化
+
+<augment_code_snippet path="src/rag/text_processor.py" mode="EXCERPT">
+````python
+import re
+import jieba
+from typing import List
+
+class TextProcessor:
+    """文本預處理器"""
+
+    def __init__(self):
+        # 載入紫微斗數專業詞典
+        jieba.load_userdict("data/knowledge/ziwei_dict.txt")
+
+    def clean_text(self, text: str) -> str:
+        """文本清理和標準化"""
+        # 移除多餘空白字符
+        text = re.sub(r'\s+', ' ', text)
+
+        # 移除特殊字符（保留中文、英文、數字、標點）
+        text = re.sub(r'[^\u4e00-\u9fff\w\s.,;:!?()（）、。，；：！？]', '', text)
+
+        # 統一標點符號
+        text = text.replace('，', ',').replace('。', '.')
+        text = text.replace('；', ';').replace('：', ':')
+
+        # 移除過短的行
+        lines = [line.strip() for line in text.split('\n') if len(line.strip()) > 5]
+
+        return '\n'.join(lines)
+
+    def segment_chinese(self, text: str) -> List[str]:
+        """中文分詞處理"""
+        # 使用 jieba 進行分詞
+        words = jieba.lcut(text)
+
+        # 過濾停用詞和單字符
+        stopwords = {'的', '了', '在', '是', '有', '和', '與', '或', '但', '而'}
+        filtered_words = [word for word in words
+                         if len(word) > 1 and word not in stopwords]
+
+        return filtered_words
+````
+</augment_code_snippet>
+
+### 2. ✂️ 文本分割策略
+
+#### 2.1 分割算法配置
+
+<augment_code_snippet path="src/rag/text_splitter.py" mode="EXCERPT">
+````python
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from typing import List, Dict
+
+class ZiweiTextSplitter:
+    """紫微斗數專用文本分割器"""
+
+    def __init__(self):
+        self.chunk_size = 500      # 每個片段的字符數
+        self.chunk_overlap = 50    # 片段重疊字符數
+
+        # 紫微斗數特殊分隔符
+        self.separators = [
+            "\n\n",           # 段落分隔
+            "\n",             # 行分隔
+            "。",             # 句號
+            "；",             # 分號
+            "，",             # 逗號
+            " ",              # 空格
+            ""                # 字符級分割
+        ]
+
+    def split_text(self, text: str) -> List[Dict[str, Any]]:
+        """智能文本分割"""
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+            separators=self.separators,
+            length_function=len
+        )
+
+        chunks = splitter.split_text(text)
+
+        # 為每個片段添加元數據
+        processed_chunks = []
+        for i, chunk in enumerate(chunks):
+            processed_chunks.append({
+                "content": chunk,
+                "chunk_id": i,
+                "length": len(chunk),
+                "keywords": self._extract_keywords(chunk)
+            })
+
+        return processed_chunks
+
+    def _extract_keywords(self, text: str) -> List[str]:
+        """提取關鍵詞"""
+        # 紫微斗數關鍵詞模式
+        patterns = [
+            r'[紫微|天府|太陽|太陰|武曲|天同|廉貞|天機|貪狼|巨門|天相|天梁|七殺|破軍]',
+            r'[命宮|財帛宮|事業宮|夫妻宮|子女宮|疾厄宮|遷移宮|奴僕宮|官祿宮|田宅宮|福德宮|父母宮]',
+            r'[甲|乙|丙|丁|戊|己|庚|辛|壬|癸][子|丑|寅|卯|辰|巳|午|未|申|酉|戌|亥]'
+        ]
+
+        keywords = []
+        for pattern in patterns:
+            matches = re.findall(pattern, text)
+            keywords.extend(matches)
+
+        return list(set(keywords))
+````
+</augment_code_snippet>
+
+### 3. 🧠 嵌入模型配置
+
+#### 3.1 BGE-M3 模型設置
+
+<augment_code_snippet path="src/rag/bge_embeddings.py" mode="EXCERPT">
+````python
+from sentence_transformers import SentenceTransformer
+import torch
+import numpy as np
+from typing import List, Union
+
+class BGEEmbeddings:
+    """BGE-M3 嵌入模型封裝"""
+
+    def __init__(self, model_name: str = "BAAI/bge-m3"):
+        self.model_name = model_name
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        # 模型配置參數
+        self.config = {
+            "max_seq_length": 8192,    # 最大序列長度
+            "normalize_embeddings": True,  # 向量標準化
+            "batch_size": 32,          # 批處理大小
+            "show_progress_bar": True   # 顯示進度條
+        }
+
+        self._load_model()
+
+    def _load_model(self):
+        """載入和初始化模型"""
+        print(f"🔄 載入 BGE-M3 模型: {self.model_name}")
+        print(f"📱 使用設備: {self.device}")
+
+        self.model = SentenceTransformer(
+            self.model_name,
+            device=self.device
+        )
+
+        # 設置模型參數
+        self.model.max_seq_length = self.config["max_seq_length"]
+
+        print("✅ BGE-M3 模型載入完成")
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """批量嵌入文檔"""
+        embeddings = self.model.encode(
+            texts,
+            batch_size=self.config["batch_size"],
+            show_progress_bar=self.config["show_progress_bar"],
+            normalize_embeddings=self.config["normalize_embeddings"]
+        )
+
+        return embeddings.tolist()
+
+    def embed_query(self, query: str) -> List[float]:
+        """嵌入查詢文本"""
+        embedding = self.model.encode(
+            [query],
+            normalize_embeddings=self.config["normalize_embeddings"]
+        )
+
+        return embedding[0].tolist()
+````
+</augment_code_snippet>
+
+#### 3.2 為什麼選擇 BGE-M3？
+
+```yaml
+BGE-M3 優勢:
+  多語言支持:
+    - 優秀的中文理解能力
+    - 支援繁體中文和古文
+
+  長文本處理:
+    - 最大支援 8192 tokens
+    - 適合處理完整的紫微斗數文檔
+
+  語義理解:
+    - 深度語義相似度計算
+    - 優秀的領域適應性
+
+  性能表現:
+    - MTEB 中文榜單前列
+    - 檢索精度高
+    - 推理速度快
+```
+
+### 4. 🗄️ 向量數據庫設置
+
+#### 4.1 ChromaDB 配置和初始化
+
+<augment_code_snippet path="src/rag/vector_store.py" mode="EXCERPT">
+````python
+import chromadb
+from chromadb.config import Settings
+from typing import List, Dict, Any, Optional
+import uuid
+
+class ZiweiVectorStore:
+    """紫微斗數向量數據庫"""
+
+    def __init__(self, persist_directory: str = "./data/vector_db"):
+        self.persist_directory = persist_directory
+        self.collection_name = "ziwei_knowledge"
+
+        # ChromaDB 配置
+        self.settings = Settings(
+            persist_directory=persist_directory,
+            anonymized_telemetry=False,
+            allow_reset=True
+        )
+
+        self._initialize_db()
+
+    def _initialize_db(self):
+        """初始化數據庫和集合"""
+        # 創建持久化客戶端
+        self.client = chromadb.PersistentClient(
+            path=self.persist_directory,
+            settings=self.settings
+        )
+
+        # 創建或獲取集合
+        try:
+            self.collection = self.client.get_collection(
+                name=self.collection_name
+            )
+            print(f"✅ 載入現有集合: {self.collection_name}")
+        except:
+            self.collection = self.client.create_collection(
+                name=self.collection_name,
+                metadata={
+                    "description": "紫微斗數知識庫",
+                    "embedding_model": "BGE-M3",
+                    "created_at": str(datetime.now())
+                }
+            )
+            print(f"🆕 創建新集合: {self.collection_name}")
+
+    def add_documents(self,
+                     documents: List[str],
+                     metadatas: List[Dict[str, Any]] = None,
+                     ids: List[str] = None) -> None:
+        """添加文檔到向量數據庫"""
+
+        if ids is None:
+            ids = [str(uuid.uuid4()) for _ in documents]
+
+        if metadatas is None:
+            metadatas = [{"source": "unknown"} for _ in documents]
+
+        # 使用 BGE-M3 生成嵌入
+        embeddings = self.embedding_model.embed_documents(documents)
+
+        # 添加到集合
+        self.collection.add(
+            documents=documents,
+            embeddings=embeddings,
+            metadatas=metadatas,
+            ids=ids
+        )
+
+        print(f"✅ 已添加 {len(documents)} 個文檔到向量數據庫")
+````
+</augment_code_snippet>
+
+#### 4.2 數據存儲結構設計
+
+```yaml
+ChromaDB 存儲結構:
+  Collection: ziwei_knowledge
+    Documents: 文檔內容文本
+    Embeddings: BGE-M3 生成的向量 (1024維)
+    Metadatas:
+      - source: 來源文件名
+      - chunk_id: 片段編號
+      - keywords: 關鍵詞列表
+      - category: 分類 (主星/宮位/格局等)
+      - confidence: 置信度分數
+    IDs: 唯一標識符 (UUID)
+
+索引策略:
+  - 使用 HNSW 算法建立近似最近鄰索引
+  - 支援餘弦相似度和歐幾里得距離
+  - 自動優化查詢性能
+```
+
+### 5. 🔍 檢索機制
+
+#### 5.1 相似度搜索算法
+
+<augment_code_snippet path="src/rag/retriever.py" mode="EXCERPT">
+````python
+class ZiweiRetriever:
+    """紫微斗數知識檢索器"""
+
+    def __init__(self, vector_store: ZiweiVectorStore):
+        self.vector_store = vector_store
+
+        # 檢索參數配置
+        self.config = {
+            "top_k": 5,                    # 返回前 K 個結果
+            "similarity_threshold": 0.7,   # 相似度閾值
+            "max_tokens": 2000,           # 最大 token 數
+            "rerank": True,               # 是否重新排序
+            "filter_duplicates": True     # 是否過濾重複內容
+        }
+
+    def search(self,
+              query: str,
+              top_k: Optional[int] = None,
+              filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """執行相似度搜索"""
+
+        top_k = top_k or self.config["top_k"]
+
+        # 1. 查詢向量化
+        query_embedding = self.vector_store.embedding_model.embed_query(query)
+
+        # 2. 向量搜索
+        results = self.vector_store.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=top_k * 2,  # 獲取更多結果用於後處理
+            where=filters,
+            include=["documents", "metadatas", "distances"]
+        )
+
+        # 3. 結果處理和排序
+        processed_results = self._process_results(results, query)
+
+        # 4. 應用過濾器
+        filtered_results = self._apply_filters(processed_results)
+
+        return filtered_results[:top_k]
+
+    def _process_results(self, results: Dict, query: str) -> List[Dict[str, Any]]:
+        """處理和增強搜索結果"""
+        processed = []
+
+        for i, (doc, metadata, distance) in enumerate(zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            results["distances"][0]
+        )):
+            # 計算相似度分數 (距離轉換為相似度)
+            similarity = 1 - distance
+
+            # 跳過低相似度結果
+            if similarity < self.config["similarity_threshold"]:
+                continue
+
+            # 計算關鍵詞匹配度
+            keyword_score = self._calculate_keyword_match(query, doc)
+
+            # 綜合評分
+            final_score = 0.7 * similarity + 0.3 * keyword_score
+
+            processed.append({
+                "content": doc,
+                "metadata": metadata,
+                "similarity": similarity,
+                "keyword_score": keyword_score,
+                "final_score": final_score,
+                "rank": i
+            })
+
+        # 按綜合評分排序
+        return sorted(processed, key=lambda x: x["final_score"], reverse=True)
+````
+</augment_code_snippet>
+
+#### 5.2 檢索參數調優
+
+```python
+# 檢索參數配置指南
+RETRIEVAL_CONFIGS = {
+    "精確檢索": {
+        "top_k": 3,
+        "similarity_threshold": 0.8,
+        "use_case": "需要高精度的專業查詢"
+    },
+
+    "平衡檢索": {
+        "top_k": 5,
+        "similarity_threshold": 0.7,
+        "use_case": "一般用途的知識檢索"
+    },
+
+    "廣泛檢索": {
+        "top_k": 10,
+        "similarity_threshold": 0.6,
+        "use_case": "探索性查詢和靈感獲取"
+    }
+}
+```
+
+### 6. 💡 實際使用示例
+
+#### 6.1 完整的 RAG 流程示例
+
+<augment_code_snippet path="examples/rag_example.py" mode="EXCERPT">
+````python
+#!/usr/bin/env python3
+"""
+紫微斗數 RAG 系統完整使用示例
+"""
+
+from src.rag.document_loader import DocumentLoader
+from src.rag.text_processor import TextProcessor
+from src.rag.text_splitter import ZiweiTextSplitter
+from src.rag.bge_embeddings import BGEEmbeddings
+from src.rag.vector_store import ZiweiVectorStore
+from src.rag.retriever import ZiweiRetriever
+
+def build_knowledge_base():
+    """構建知識庫的完整流程"""
+
+    print("🚀 開始構建紫微斗數知識庫...")
+
+    # 1. 初始化組件
+    loader = DocumentLoader()
+    processor = TextProcessor()
+    splitter = ZiweiTextSplitter()
+    embeddings = BGEEmbeddings()
+    vector_store = ZiweiVectorStore()
+
+    # 2. 載入文檔
+    print("📚 載入知識文檔...")
+    documents = []
+    knowledge_files = [
+        "data/knowledge/紫微斗數全書.pdf",
+        "data/knowledge/主星解析.txt",
+        "data/knowledge/宮位詳解.txt"
+    ]
+
+    for file_path in knowledge_files:
+        if file_path.endswith('.pdf'):
+            text = loader.load_pdf(file_path)
+        else:
+            text = loader.load_txt(file_path)
+
+        documents.append({
+            "content": text,
+            "source": file_path
+        })
+
+    # 3. 文本預處理
+    print("🔧 文本預處理...")
+    all_chunks = []
+    for doc in documents:
+        # 清理文本
+        cleaned_text = processor.clean_text(doc["content"])
+
+        # 分割文本
+        chunks = splitter.split_text(cleaned_text)
+
+        # 添加來源信息
+        for chunk in chunks:
+            chunk["metadata"]["source"] = doc["source"]
+            all_chunks.append(chunk)
+
+    # 4. 向量化和存儲
+    print("🧠 生成向量嵌入...")
+    texts = [chunk["content"] for chunk in all_chunks]
+    metadatas = [chunk["metadata"] for chunk in all_chunks]
+
+    vector_store.add_documents(
+        documents=texts,
+        metadatas=metadatas
+    )
+
+    print(f"✅ 知識庫構建完成！共處理 {len(all_chunks)} 個文檔片段")
+    return vector_store
+
+def query_knowledge_base(vector_store: ZiweiVectorStore, query: str):
+    """查詢知識庫示例"""
+
+    print(f"\n🔍 查詢: {query}")
+
+    # 初始化檢索器
+    retriever = ZiweiRetriever(vector_store)
+
+    # 執行檢索
+    results = retriever.search(query, top_k=3)
+
+    # 顯示結果
+    print("\n📋 檢索結果:")
+    for i, result in enumerate(results, 1):
+        print(f"\n{i}. 相似度: {result['similarity']:.3f}")
+        print(f"   來源: {result['metadata']['source']}")
+        print(f"   內容: {result['content'][:200]}...")
+
+    return results
+
+def main():
+    """主函數示例"""
+
+    # 構建知識庫（首次運行）
+    vector_store = build_knowledge_base()
+
+    # 查詢示例
+    queries = [
+        "紫微星在命宮的特質",
+        "財帛宮有武曲星代表什麼",
+        "天同星的性格特點"
+    ]
+
+    for query in queries:
+        results = query_knowledge_base(vector_store, query)
+
+if __name__ == "__main__":
+    main()
+````
+</augment_code_snippet>
+
+#### 6.2 性能優化建議
+
+```yaml
+性能優化策略:
+
+1. 模型優化:
+   - 使用量化模型減少內存占用
+   - 批量處理提高吞吐量
+   - GPU 加速向量計算
+
+2. 數據庫優化:
+   - 定期重建索引
+   - 使用適當的相似度閾值
+   - 實施結果緩存機制
+
+3. 檢索優化:
+   - 預過濾無關文檔
+   - 使用混合檢索策略
+   - 實施查詢擴展技術
+
+4. 系統優化:
+   - 異步處理大批量請求
+   - 實施連接池管理
+   - 監控系統資源使用
+```
+
+#### 6.3 監控和維護
+
+<augment_code_snippet path="src/rag/monitor.py" mode="EXCERPT">
+````python
+class RAGMonitor:
+    """RAG 系統監控器"""
+
+    def __init__(self, vector_store: ZiweiVectorStore):
+        self.vector_store = vector_store
+
+    def get_system_stats(self) -> Dict[str, Any]:
+        """獲取系統統計信息"""
+        collection = self.vector_store.collection
+
+        return {
+            "total_documents": collection.count(),
+            "collection_name": collection.name,
+            "embedding_dimension": 1024,  # BGE-M3 維度
+            "last_updated": datetime.now().isoformat()
+        }
+
+    def test_retrieval_quality(self, test_queries: List[str]) -> Dict[str, float]:
+        """測試檢索質量"""
+        retriever = ZiweiRetriever(self.vector_store)
+
+        total_queries = len(test_queries)
+        successful_retrievals = 0
+        avg_similarity = 0
+
+        for query in test_queries:
+            results = retriever.search(query, top_k=1)
+            if results and results[0]["similarity"] > 0.7:
+                successful_retrievals += 1
+                avg_similarity += results[0]["similarity"]
+
+        return {
+            "success_rate": successful_retrievals / total_queries,
+            "average_similarity": avg_similarity / total_queries if total_queries > 0 else 0
+        }
+````
+</augment_code_snippet>
+
 ## 🚀 快速開始
 
 ### 1. 環境準備
