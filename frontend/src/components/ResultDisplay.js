@@ -176,7 +176,7 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
   const processMarkdown = (text) => {
     if (!text || typeof text !== 'string') return '';
 
-    // 先轉義 HTML 特殊字符（除了我們要處理的 Markdown）
+    // 先處理基本的 Markdown 元素
     let processedText = text;
 
     // 將 ## 轉換為 h2 標題
@@ -194,17 +194,18 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
     // 將 *text* 轉換為斜體
     processedText = processedText.replace(/\*([^*]+?)\*/g, '<em class="md-em">$1</em>');
 
-    // 處理有序列表 - 改進的邏輯
+    // 處理列表 - 逐行解析
     const lines = processedText.split('\n');
     let inOrderedList = false;
     let inUnorderedList = false;
     let result = [];
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+      const line = lines[i];
+      const trimmedLine = line.trim();
 
       // 檢查有序列表項目
-      const orderedMatch = line.match(/^(\d+)\.\s+(.+)$/);
+      const orderedMatch = trimmedLine.match(/^(\d+)\.\s+(.+)$/);
       if (orderedMatch) {
         if (!inOrderedList) {
           if (inUnorderedList) {
@@ -219,7 +220,7 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
       }
 
       // 檢查無序列表項目
-      const unorderedMatch = line.match(/^-\s+(.+)$/);
+      const unorderedMatch = trimmedLine.match(/^-\s+(.+)$/);
       if (unorderedMatch) {
         if (!inUnorderedList) {
           if (inOrderedList) {
@@ -233,6 +234,21 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
         continue;
       }
 
+      // 空行處理
+      if (trimmedLine === '') {
+        // 空行結束列表
+        if (inOrderedList) {
+          result.push('</ol>');
+          inOrderedList = false;
+        }
+        if (inUnorderedList) {
+          result.push('</ul>');
+          inUnorderedList = false;
+        }
+        result.push('<br>');
+        continue;
+      }
+
       // 非列表項目
       if (inOrderedList) {
         result.push('</ol>');
@@ -243,27 +259,21 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
         inUnorderedList = false;
       }
 
-      result.push(line);
+      // 添加普通文本行
+      if (trimmedLine.startsWith('<h') || trimmedLine.includes('class="md-')) {
+        // 已經是HTML標籤，直接添加
+        result.push(trimmedLine);
+      } else if (trimmedLine) {
+        // 普通文本，包裝在段落中
+        result.push(`<p class="md-p">${trimmedLine}</p>`);
+      }
     }
 
     // 關閉未關閉的列表
     if (inOrderedList) result.push('</ol>');
     if (inUnorderedList) result.push('</ul>');
 
-    processedText = result.join('\n');
-
-    // 將雙換行轉換為段落分隔
-    processedText = processedText.replace(/\n\n/g, '</p><p class="md-p">');
-
-    // 將單換行轉換為 br
-    processedText = processedText.replace(/\n/g, '<br>');
-
-    // 包裝在段落中
-    if (!processedText.includes('<h2') && !processedText.includes('<h3') && !processedText.includes('<ol') && !processedText.includes('<ul')) {
-      processedText = '<p class="md-p">' + processedText + '</p>';
-    }
-
-    return processedText;
+    return result.join('');
   };
 
   const handleExpandClick = () => {
@@ -375,7 +385,6 @@ const ResultDisplay = ({ result, domain, onRestart }) => {
                   variant="contained"
                   startIcon={<DownloadIcon />}
                   onClick={handleDownload}
-                  //sx={{ borderRadius: '20px' }}
                   sx={{ 
                     borderRadius: '20px',
                     background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',

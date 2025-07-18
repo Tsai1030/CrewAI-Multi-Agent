@@ -27,7 +27,8 @@ app = FastAPI(
 # 配置 CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # React 開發服務器
+    # allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],  # React 開發服務器
+    allow_origins=["*"],  # 確保是 * 允許所有來源
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -48,7 +49,7 @@ class AnalysisRequest(BaseModel):
     birth_data: BirthData
     domain_type: str = Field(default="comprehensive", description="分析領域")
     output_format: str = Field(default="json_to_narrative", description="輸出格式")
-    show_agent_process: bool = Field(default=False, description="是否顯示 Agent 過程")
+    show_agent_process: bool = Field(default=False, description="是否顯示 Agent 過程") # 🎯 顯示 Agent 過程
 
 # 響應模型
 class AnalysisResponse(BaseModel):
