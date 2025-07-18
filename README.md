@@ -410,7 +410,7 @@ sequenceDiagram
     F->>U: 展示分析報告
 ## 📁 文件架構說明
 
-```
+```text
 crewai/
 ├── 📋 README.md                    # 項目說明文檔
 ├── 🚀 main.py                      # 主程式入口（雙架構支援）
